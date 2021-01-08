@@ -1,0 +1,4 @@
+.idea/*
+src/__pycache__/*
+src/.ipynb_checkpoints/*
+model/*.bin
