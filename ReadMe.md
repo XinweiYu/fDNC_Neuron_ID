@@ -17,7 +17,7 @@ We predict the neuron names for a test worm, which is also a python dictionary s
 
 An example of Data of template and test worm is provided in Data/Example
 
-To run the ID prediction, use the predict function in DLE_predict.py. An example of running code was provided in src/example.ipynb 
+To run the ID prediction, use the predict function in src/DLC_predict.py. An example of running code was provided in src/example.ipynb 
 
 # Pretrain model
 We provide a pretrained model and recommend our user to download the pretrained model and save it in model folder as model/model.bin. The model can be found <a href="https://osf.io/t7dzu/">Data And Pretrained Model</a>
