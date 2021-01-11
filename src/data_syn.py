@@ -11,7 +11,7 @@ import torch
 import pickle
 from Himag_cline import worm_cline, standard_neurons, find_min_match
 from cpd_nonrigid_sep import register_nonrigid
-from cpd_plot import cpd_plot
+#from cpd_plot import cpd_plot
 
 
 
@@ -48,8 +48,7 @@ def syn_head(neurons_s, neurons_t=None, noise_var=0, rotate_yz=True, scale=200, 
         pts_s_s_cpd = pt_trans.transform(pts_s_s)
         s_trans = register_nonrigid(pts_t_s_cpd, pts_s_s_cpd, w=w, lamb=lamb,
                                      beta=beta)
-        if show:
-            cpd_plot(pts_t_s_cpd, pts_s_s_cpd, s_trans)
+
         pts_s_out = pt_trans.transform_inv(s_trans)
         cline_f_out = cline_f_t
 
@@ -180,13 +179,13 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str, default='multiple', help='synthesize same worm or across worm: copy, single or multiple')
     parser.add_argument("--index_mode", type=str, default='old', help='save old/new(0-num) track index')
     parser.add_argument("--path", type=str, default='/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/real',
-                        help='the path of real data')
-    parser.add_argument("--save_p", type=str, default='/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/train',
+                        help='the path of real data(use your own real data(1 unit=0.42um)')
+    parser.add_argument("--save_p", type=str, default='../results/train',
                         help='the path to save synthesized data')
     parser.add_argument("--source_num", type=int, default=100, help='number of source worm selected randomly')
     parser.add_argument("--template_num", type=int, default=64, help='number of template worm selected randomly')
     parser.add_argument("--shuffle", type=int, default=1, help="whether shuffle the dataset")
-    parser.add_argument("--scale", type=float, default=200, help="the scale applied to original coordinates.")
+    parser.add_argument("--scale", type=float, default=200, help="the scale applied to original coordinates(1 unit=0.42um).")
     parser.add_argument("--start_idx", type=int, default=0)
     parser.add_argument("--syn_mode", default="uns", type=str)
     parser.add_argument("--save_type", default='npy', type=str)
@@ -298,6 +297,9 @@ if __name__ == "__main__":
             elif args.index_mode == 'new':
                 # use new track index, range(num_neurons)
                 save_dir = os.path.join(args.save_p, 'syn_{}_{}'.format(args.syn_mode, source_i))
+
+            if not os.path.exists(args.save_p):
+                os.mkdir(args.save_p)
 
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)

@@ -8,6 +8,16 @@ def extract_center(y, num_ext):
     num_pt = len(y)
     return y[num_ext:len(y)-num_ext]
 
+def find_min_match(neurons, tmp, dim=2):
+    if dim is None:
+        dim = neurons.shape[1]
+    dis = neurons[:, np.newaxis, :dim] - tmp[:, :dim]
+    dis = np.sqrt(np.sum(dis ** 2, axis=2))
+    idx = np.argmin(dis, axis=1)
+    x_idx = np.arange(neurons.shape[0])
+    dis_min = dis[x_idx, idx]
+    return idx, dis_min
+
 def extend_ends(y, num_ext):
     # y is array
     if num_ext > 0:

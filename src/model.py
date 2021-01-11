@@ -1,9 +1,183 @@
 import torch
 from torch.autograd import Variable
+from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.nn.utils
 import torch.nn.functional as F
 import numpy as np
+import os
+import glob
+
+def find_match(label2, label1):
+    # label 1 and label 2 is the label for neurons in two worms.
+    if len(label1) == 0 or len(label2) == 0:
+        return []
+    pt1_dict = dict()
+    # build a dict of neurons in worm1
+    label1_indices = np.where(label1 >= 0)[0]
+    for idx1 in label1_indices:
+        pt1_dict[label1[idx1]] = idx1
+    # search label2 in label 1 dict
+    match = list()
+    unlabel = list()
+    label2_indices = np.where(label2 >= -1)[0]
+    for idx2 in label2_indices:
+        if label2[idx2] in pt1_dict:
+            match.append([idx2, pt1_dict[label2[idx2]]])
+        else:
+            unlabel.append(idx2)
+    return np.array(match), np.array(unlabel)
+
+
+class neuron_data_pytorch(Dataset):
+    """
+    This class is to compile neuron data from different worms
+    """
+    def __init__(self, path, batch_sz, shuffle, rotate=False, mode='all', ref_idx=0, show_name=False, shuffle_pt = True, tmp_path= None):
+        """
+        Initialize parameters.
+        :param path: the path for all worms
+        :param batch_sz: batch_size
+        :param shuffle : whether to shuffle the data
+        """
+        self.path = path
+        self.mode = mode
+        self.batch_sz = batch_sz
+        self.shuffle = shuffle
+
+        self.rotate = rotate
+        self.ref_idx = ref_idx
+        self.show_name = show_name
+        self.shuffle_pt = shuffle_pt
+
+        # set the temp_plate
+        if tmp_path is not None:
+            # set the ref_idx to 0
+            self.ref_idx = 0
+            self.tmp_path = tmp_path
+            self.load_path(path, batch_sz-1)
+        else:
+            self.tmp_path = tmp_path
+            self.load_path(path, batch_sz)
+
+    def load_path(self, path, batch_sz):
+        """
+        This function get the folder names + file names(volume) together. Set the index for further use
+        :param batch_sz: batch size
+        :return:
+        """
+        if self.mode == 'all':
+            self.folders = glob.glob(os.path.join(path, '*/'))
+        elif self.mode == 'real':
+            self.folders = glob.glob(os.path.join(path, 'real_*/'))
+        elif self.mode == 'syn':
+            self.folders = glob.glob(os.path.join(path, 'syn_*/'))
+
+        # files in each folder is a list
+        all_files = list()
+        bundle_list = list()
+        num_data = 0
+
+        for folder_idx, folder in enumerate(self.folders):
+            if self.mode == 'all':
+                volume_list = glob.glob1(folder, '*.npy')
+            elif self.mode == 'real':
+                volume_list = glob.glob1(folder, 'real_*.npy')
+            elif self.mode == 'syn':
+                volume_list = glob.glob1(folder, 'syn_*.npy')
+
+            num_volume = len(volume_list)
+            num_data += num_volume
+            all_files.append(volume_list)
+
+            if batch_sz > num_volume:
+                bundle_list.append([folder_idx, 0, num_volume])
+            else:
+                for i in range(0, num_volume, batch_sz):
+                    end_idx = i + batch_sz
+                    if end_idx > num_volume:
+                        end_idx = num_volume
+                        start_idx = num_volume - batch_sz
+                    else:
+                        start_idx = i
+
+                    bundle_list.append([folder_idx, start_idx, end_idx])
+
+        self.all_files = all_files
+        self.bundle_list = bundle_list
+        self.batch_num = len(bundle_list)
+        print('total volumes:{}'.format(num_data))
+        if self.shuffle:
+            self.shuffle_batch()
+
+    def __len__(self):
+        return self.batch_num
+
+    def shuffle_batch(self):
+        """
+        This function shuffles every element in all_files list(volume) and bundle list(order of batch)
+        :return:
+        """
+        for volumes_list in self.all_files:
+            np.random.shuffle(volumes_list)
+
+        np.random.shuffle(self.bundle_list)
+
+    def __getitem__(self, item):
+        return self.bundle_list[item]
+
+
+    def load_pt(self, pt_name):
+        pt = np.load(pt_name)
+        if self.shuffle_pt:
+            np.random.shuffle(pt)
+        if self.rotate:
+            theta = np.random.rand(1)[0] * 2 * np.pi
+            r_m = [[np.cos(theta), np.sin(theta), 0], [-np.sin(theta), np.cos(theta), 0], \
+                   [0, 0, 1]]
+            pt[:, :3] = np.matmul(pt[:, :3], r_m)
+        return pt
+
+    def custom_collate_fn(self, bundle):
+        bundle = bundle[0]
+        pt_batch = list()
+        label_batch = list()
+        pt_name_list = list()
+
+        if self.tmp_path is not None:
+            if self.show_name:
+                pt_name_list.append(self.tmp_path)
+            pt = self.load_pt(self.tmp_path)
+            pt_batch.append(pt[:, :3])
+            label_batch.append(pt[:, 3])
+
+        for volume_idx in range(bundle[1], bundle[2]):
+            pt_name = os.path.join(self.folders[bundle[0]], self.all_files[bundle[0]][volume_idx])
+            if self.show_name:
+                pt_name_list.append(pt_name)
+
+            pt = self.load_pt(pt_name)
+            pt_batch.append(pt[:, :3])
+            label_batch.append(pt[:, 3])
+
+        match_dict = dict()
+
+        ref_i = self.ref_idx
+        for i in range(len(label_batch)):
+            match_dict[i], match_dict['unlabel_{}'.format(i)] = find_match(label_batch[i], label_batch[ref_i])
+            # get the unlabelled neuron
+            #match_dict['unlabel_{}'.format(i)] = np.where(label_batch[i] == -1)[0]
+            # get the outlier neuron
+            match_dict['outlier_{}'.format(i)] = np.where(label_batch[i] == -2)[0]
+
+        data_batch = dict()
+        data_batch['pt_batch'] = pt_batch
+        data_batch['match_dict'] = match_dict
+        data_batch['pt_label'] = label_batch
+        data_batch['ref_i'] = ref_i
+        if self.show_name:
+            data_batch['pt_names'] = pt_name_list
+        return data_batch
 
 
 class STNkd(nn.Module):

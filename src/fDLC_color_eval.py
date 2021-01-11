@@ -1,14 +1,14 @@
-from data_prep import find_match
+from DLC_predict import pre_matt
 import torch
 import argparse
-from preprocess_matt import pre_matt
 import glob
 import os
 import pickle
 import numpy as np
-from model_utils import NIT_Registration
+from model import NIT_Registration, find_match
 from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
+
 
 def get_batch(mov_list, temp_p, batch_sz=32):
 
@@ -63,80 +63,6 @@ def get_batch(mov_list, temp_p, batch_sz=32):
         data_batch['pt_names'] = pt_name_list
         yield data_batch
 
-def match_color(x_c, y_c, thd=10, scale=1):
-
-    # transform the color of neurons to matched the distribution of template.
-
-    fit_proportion = 0.97
-    # sort the color
-
-    num_sort_y = int(len(y_c) * fit_proportion)
-    x_c_sort = np.sort(np.copy(x_c))
-    y_c_sort = np.sort(np.copy(y_c))
-
-    y_idx_align = np.floor(np.arange(0, num_sort_y) * len(x_c) / len(y_c))
-    y_idx_align = y_idx_align.astype(int)
-
-    # find the value that we should align
-    y_c_align = x_c_sort[y_idx_align]
-
-    # fit the linear line to the select data.
-    z = np.polyfit(y_c_sort[:num_sort_y], y_c_align, 1)
-
-    y_fit = z[1] + z[0] * y_c
-
-    # scale with the template value
-    # x_c_filter = savgol_filter(x_c_sort, window_length=21, polyorder=2, mode='nearest')
-    #
-    # if scale_auto:
-    #     scale = x_c_filter[int(scale_thd * len(x_c)) - 1]
-    #     self.scale[channel] = scale
-    # else:
-    #     scale = self.scale[channel]
-
-    ##
-    # plt.scatter(y_c_sort[:num_sort_y], y_c_align, s=10)
-    # plt.plot(y_c_sort, np.sort(y_fit))
-    # plt.xlabel('Percentile of Intensity in Template Worm')
-    # plt.ylabel('Percentile of Intensity in Worm')
-    # plt.show()
-    # plt.hist(x_c, bins=20, range=(-1, 20))
-    # plt.xlabel('Intensity of Neurons in Template Worm')
-    # plt.ylabel('Counts')
-    # plt.show()
-    # plt.hist(y_c,bins=20,range=(-100,10000))
-    # plt.xlabel('Intensity of Neurons in Worm')
-    # plt.ylabel('Counts')
-    # plt.show()
-    # plt.hist(y_fit,bins=20,range=(-100,10000))
-    # plt.xlabel('Intensity of Neurons in Worm After alignment')
-    # plt.ylabel('Counts')
-    # plt.show()
-    #
-    # if get_trans:
-    #     return y_fit / (scale + 1), z, scale
-    # else:
-    #     return y_fit / (scale + 1)
-
-    x_c_new = np.copy(x_c)
-    y_c_new = np.copy(y_c)
-    x_c_new[x_c_new > thd] = thd
-    y_fit[y_fit > thd] = thd
-    y_c_new[y_c_new > thd] = thd
-
-    color_m = (x_c_new[np.newaxis, :] - y_c_new[:, np.newaxis]) ** 2
-
-    color_m = -0.5 * color_m #/ scale
-    return color_m, y_fit
-
-
-def match_color_multiple(x_cs, y_cs, scale=[5.2, 7.6, 4.8]):
-    out_m = 0
-
-    for i in range(3):
-        out_m_cur, _ = match_color(x_cs[:, i], y_cs[:, i], scale[i])
-        out_m += out_m_cur
-    return out_m
 
 def match_color_norm(x_cs, y_cs):
     # x_cs = np.log(1 + np.copy(x_cs)[:, :3])
@@ -162,13 +88,12 @@ def match_color_norm(x_cs, y_cs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=32, type=int)
-    #parser.add_argument("--model_path", default="/scratch/gpfs2/xinweiy/github/NeuronNet/model/reg_nh128_nl6_ft0_dataall_elam_0.1_627.bin", type=str)
     parser.add_argument("--model_path",
-                        default="/scratch/gpfs2/xinweiy/github/NeuronNet/model/nitReg_nh128_nl6_ft0_dataall_elam_0.1_1013.bin",
+                        default="../model/model.bin",
                         type=str)
-    parser.add_argument("--eval_path", default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_neuropal_xinwei_0930", type=str)
+    parser.add_argument("--eval_path", default="../Data/test_neuropal_our", type=str)
     parser.add_argument("--save", default=0, type=int)
-    parser.add_argument("--save_p", default="/projects/LEIFER/Xinwei/github/NeuronNet/match_results", type=str)
+    parser.add_argument("--save_p", default="../results/match_results", type=str)
     parser.add_argument("--cuda", default=1, type=int)
     parser.add_argument("--n_hidden", default=128, type=int)
     parser.add_argument("--n_layer", default=6, type=int)
@@ -176,8 +101,8 @@ if __name__ == "__main__":
     parser.add_argument("--show_name", default=0, type=int)
     parser.add_argument("--ref_idx", default=0, type=int)
     parser.add_argument("--conf_thd", default=0.00, type=float)
-    parser.add_argument("--temp_p", default='/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/neuropal_eval/20191213_142710.data', type=str)
-    parser.add_argument("--mov_p", default='/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/neuropal_eval/mov', type=str)
+    parser.add_argument("--temp_p", default='../Data/test_neuropal_all_features/20191213_142710.data', type=str)
+    parser.add_argument("--mov_p", default='../Data/test_neuropal_all_features/mov', type=str)
     args = parser.parse_args()
 
 
@@ -236,23 +161,11 @@ if __name__ == "__main__":
             p_m = p_m[:num_neui, :]
             #color_m = match_color_multiple(data_batch['color'][data_batch['ref_i']], data_batch['color'][i])
             color_m = match_color_norm(data_batch['color'][data_batch['ref_i']], data_batch['color'][i]) * 60
-            #color_m = np.hstack((color_m.T, np.ones((len(p_m), 1)) * -1.5))
-            #p_m = p_m + color_m * 0.5
+
             p_m_pos = np.copy(p_m)
             p_m = p_m[:, :-1] + color_m * 1
 
-            # gt_match = match_dict[i]
-            # def plot_match(match, mov_i=0):
-            #     num = p_m.shape[1]
-            #     x = np.arange(num)
-            #     plt.scatter(x, p_m[match[mov_i][0]], c='red')
-            #     plt.scatter(x[:-1], color_m[match[mov_i][0]], c='green')
-            #     print('ground truth match:{}, p_m:{}, color_m:{}'.format(match[mov_i], p_m[match[mov_i][0], match[mov_i][1]], color_m[match[mov_i][0], match[mov_i][1]]))
-            #     plt.show()
-            #
-            # print(color_m[gt_match[:, 1], gt_match[:, 0]])
-            # plot_match(gt_match, mov_i=0)
-            #gt_match
+
 
             if args.method == 'hung':
                 row, col = linear_sum_assignment(-p_m)
@@ -292,11 +205,6 @@ if __name__ == "__main__":
 
             gt_match = match_dict[i]
             gt_match_dict = dict()
-
-            # color_m = match_color(data_batch['color'][data_batch['ref_i']][:, 2], data_batch['color'][i][:, 2])
-            # color_diff_gt += np.sum(color_m[gt_match[:, 1], gt_match[:, 0]])
-            # color_diff_rand += np.sum(color_m[gt_match[:, 1], 1])
-            # color_num += len(gt_match)
 
             for gt_m in gt_match:
                 gt_match_dict[gt_m[0]] = gt_m[1]

@@ -1,10 +1,9 @@
-from Registration_transformer import neuron_data_pytorch
+from scipy.optimize import linear_sum_assignment
 import torch
 import argparse
-from torch.utils.data import Dataset, DataLoader
-from scipy.optimize import linear_sum_assignment
+from torch.utils.data import DataLoader
 import numpy as np
-from model_utils import NIT_Registration
+from model import NIT_Registration, neuron_data_pytorch
 import pickle
 import os
 from cpd_rigid_sep import register_rigid
@@ -92,23 +91,13 @@ def jeff_match(pSNew, idx1, idx2, track_method=0):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=32, type=int)
-    #parser.add_argument("--model_path", default="/scratch/gpfs2/xinweiy/github/NeuronNet/model/reg_nh128_nl6_ft0_dataall_elam_0.1_627.bin", type=str)
     parser.add_argument("--model_path",
-                        default="/scratch/gpfs2/xinweiy/github/NeuronNet/model/nitReg_nh128_nl6_ft0_dataall_elam_0.1_1013.bin",
+                        default="../model/model.bin",
                         type=str)
-    # parser.add_argument("--eval_path", default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/real_ready/test_real", #syn_uns_2",
-    #                     type=str)
-    parser.add_argument("--eval_path", default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_neuropal_xinwei_0930", type=str)
-    # parser.add_argument("--eval_path",
-    #                     default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_neuropal_hang", type=str)
-    # parser.add_argument("--eval_path", default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_real",
-    #                     type=str)
-    # parser.add_argument("--eval_path", default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_jeff",
-    #                     type=str)
-    # parser.add_argument("--eval_path", default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_syn_uns_0",
-    #                     type=str)
+
+    parser.add_argument("--eval_path", default="../Data/test_neuropal_our", type=str) # the path to test data.
     parser.add_argument("--save", default=0, type=int)
-    parser.add_argument("--save_p", default="/projects/LEIFER/Xinwei/github/NeuronNet/match_results", type=str)
+    parser.add_argument("--save_p", default="../results", type=str)
     parser.add_argument("--cuda", default=1, type=int)
     parser.add_argument("--n_hidden", default=128, type=int)
     parser.add_argument("--n_layer", default=6, type=int)
@@ -121,9 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--acc_name", default='xinwei', type=str)
     parser.add_argument("--conf_thd", default=0.00, type=float)
     parser.add_argument("--tmp_p", default="no", type=str)
-    # parser.add_argument("--tmp_p",
-    #                     default="/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/test_jeff/real_jeff/real_684.npy", # this is used as tracking template.
-    #                     type=str)
     args = parser.parse_args()
 
     if args.tmp_p == 'no':

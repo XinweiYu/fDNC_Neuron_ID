@@ -101,7 +101,8 @@ def pre_matt(file, scale=200):
     else:
         mask_keep = data['mask_keep']
 
-    label = np.array(data['name'])[mask_keep] if 'label' in data else None
+    label = np.array(data['label'])[mask_keep] if 'label' in data else None
+    label = label[:, np.newaxis]
     pts = data['pts'][mask_keep, :] / 0.42
 
     # transform the pts so that it match my results.
@@ -109,11 +110,13 @@ def pre_matt(file, scale=200):
     pts /= scale
     if 'side' in data and data['side'] == 0:
         pts[:, [0, 2]] *= -1
+    if label is not None:
+        pts_out = np.hstack((pts, label))
     output = dict()
-
-    output['pts'] = pts
+    output['pts'] = pts_out
     output['color'] = data['fluo'][mask_keep, :] if 'fluo' in data else None
     output['label'] = label
+    output['f_name'] = file
 
     return output
 
