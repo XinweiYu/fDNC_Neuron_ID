@@ -24,7 +24,7 @@ def match_color_norm(x_cs, y_cs):
     return color_m
 
 def predict_label(temp_pos, temp_label, test_pos, temp_color=None, test_color=None, cuda=True, topn=5):
-    model = NIT_Registration(input_dim=3, n_hidden=128, n_layer=6, p_rotate=0, feat_trans=0)
+    model = NIT_Registration(input_dim=3, n_hidden=128, n_layer=6, p_rotate=0, feat_trans=0, cuda=cuda)
     device = torch.device("cuda:0" if cuda else "cpu")
     # load trained model
     model_path = "../model/model.bin"
@@ -83,7 +83,7 @@ def predict(temp_f, test_f):
     test = pre_matt(test_f)
 
     temp_pos = temp['pts']
-    temp_label = temp['label']
+    temp_label = temp['name']
     temp_color = temp['color']
 
     test_pos = test['pts']
@@ -102,7 +102,8 @@ def pre_matt(file, scale=200):
         mask_keep = data['mask_keep']
 
     label = np.array(data['label'])[mask_keep] if 'label' in data else None
-    label = label[:, np.newaxis]
+    name = np.array(data['name'])[mask_keep] if 'label' in data else None
+    label = None
     pts = data['pts'][mask_keep, :] / 0.42
 
     # transform the pts so that it match my results.
@@ -111,11 +112,15 @@ def pre_matt(file, scale=200):
     if 'side' in data and data['side'] == 0:
         pts[:, [0, 2]] *= -1
     if label is not None:
+        label = label[:, np.newaxis]
         pts_out = np.hstack((pts, label))
+    else:
+        pts_out = pts
     output = dict()
     output['pts'] = pts_out
     output['color'] = data['fluo'][mask_keep, :] if 'fluo' in data else None
     output['label'] = label
+    output['name'] = name
     output['f_name'] = file
 
     return output

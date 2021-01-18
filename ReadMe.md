@@ -6,6 +6,8 @@ This tool was developed for automatically predicting neuron correspondence for p
 The code was run in python 3.7 environment. The packages and version can be found in requirements.txt
 
 # Usage
+The code can be run with or without a Nvidia gpu. Set the argument cuda=False force the model to be run under cpu. The running speed with a Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz is 0.05s/worm.
+
 A template worm with labels already assigned is required. The data should be a python dictionary stored using pickle package with following keys:
 1. pts: a numpy array of dimension N*3 as the xyz position of neurons(unit:micrometer)
 2. fluo: a numpy array of dimension N*num_channel as the fluorescent signals.(Set to be None if not available)

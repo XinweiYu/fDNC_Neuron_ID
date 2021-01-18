@@ -130,7 +130,8 @@ if __name__ == "__main__":
             print("{}:{}")
 
     # load model
-    model = NIT_Registration(input_dim=3, n_hidden=args.n_hidden, n_layer=args.n_layer, p_rotate=0, feat_trans=0)
+    model = NIT_Registration(input_dim=3, n_hidden=args.n_hidden, n_layer=args.n_layer,
+                             p_rotate=0, feat_trans=0, cuda=args.cuda)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
     params = torch.load(args.model_path, map_location=lambda storage, loc: storage)
