@@ -1,6 +1,6 @@
 # DLC: Deep Learning Correspondence for Neuron ID
 
-This tool was developed for automatically predicting neuron correspondence for point clouds of neurons. The point clouds do not requirestraightening or alignment as preprocessing. 
+This tool was developed for automatically predicting neuron correspondence for point clouds of neurons. The point clouds do not require straightening or axis-alignment as preprocessing. 
 
 # Installation
 The code was run in python 3.7 environment. The packages and version can be found in requirements.txt
@@ -21,6 +21,7 @@ The worm should be lie on its right side. (If the worm lies on the left side, we
 
 An example of Data of template and test worm is provided in Data/Example
 
+# Example Code
 To run the ID prediction, use the predict function in src/DLC_predict.py. An example of running code was provided in src/example.ipynb 
 
 # Pretrain model
