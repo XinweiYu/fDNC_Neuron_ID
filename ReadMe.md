@@ -17,6 +17,8 @@ We predict the neuron names for a test worm, which is also a python dictionary s
 1. pts: a numpy array of dimension M*3 as the xyz position of neurons(unit:micrometer)
 2. fluo: a numpy array of dimension M*num_channel as the fluorescent signals.(Set to be None if not available)
 
+The worm should be lie on its right side. (If the worm lies on the left side, we can rotate the worm for 180 degree, which invert the sign of x and z coordinates)
+
 An example of Data of template and test worm is provided in Data/Example
 
 To run the ID prediction, use the predict function in src/DLC_predict.py. An example of running code was provided in src/example.ipynb 
