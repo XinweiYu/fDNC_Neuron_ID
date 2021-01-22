@@ -17,7 +17,7 @@ We predict the neuron names for a test worm, which is also a python dictionary s
 1. pts: a numpy array of dimension M*3 as the xyz position of neurons(unit:micrometer)
 2. fluo: a numpy array of dimension M*num_channel as the fluorescent signals.(Set to be None if not available)
 
-The worm should be lie on its right side. (If the worm lies on the left side, we can rotate the worm for 180 degree, which invert the sign of x and z coordinates)
+Each recorded worm is unstraightened and the head direction is arbitrary. The recorded worms tested in this work lie on their right sides.(For a worm lies on its left side, we can simply rotate 180 degree by inverting the sign of x and z coordinates). 
 
 An example of Data of template and test worm is provided in Data/Example
 
