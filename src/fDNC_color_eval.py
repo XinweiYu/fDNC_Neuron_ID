@@ -1,4 +1,4 @@
-from DLC_predict import pre_matt
+from DNC_predict import pre_matt
 import torch
 import argparse
 import glob
@@ -217,6 +217,7 @@ if __name__ == "__main__":
                     num_match += 1
                     if gt_match_dict[r] == col[r_idx]:
                         num_hit += 1
+            num_match = len(gt_match_dict)
             acc_m = num_hit / max(1, num_match)
             num_hit_all += num_hit
             num_match_all += num_match
@@ -274,6 +275,3 @@ if __name__ == "__main__":
     out = dict()
     out['trans_w_c'] = np.array(acc_list)
     out['trans_w_p'] = np.array(acc_list_pos)
-    with open(os.path.join('/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/plot', 'w_color.pkl'), 'wb') as fp:
-        pickle.dump(out, fp)
-        fp.close()

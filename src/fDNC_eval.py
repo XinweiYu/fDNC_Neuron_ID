@@ -106,10 +106,12 @@ if __name__ == "__main__":
     parser.add_argument("--ref_idx", default=5, type=int) #5 is used as template for neuropal data.
     parser.add_argument("--do_cpd", default=1, type=int)
     parser.add_argument("--do_jeff", default=0, type=int)
-    parser.add_argument("--cal_lim", default=200, type=int)
+    parser.add_argument("--cal_lim", default=2000, type=int)
     parser.add_argument("--acc_name", default='xinwei', type=str)
     parser.add_argument("--conf_thd", default=0.00, type=float)
     parser.add_argument("--tmp_p", default="no", type=str)
+    parser.add_argument("--n_outlier", default=5, type=int)
+
     args = parser.parse_args()
 
     if args.tmp_p == 'no':
@@ -119,7 +121,7 @@ if __name__ == "__main__":
 
 
     if args.do_jeff:
-        psNew_p = '/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/Jeff_manual/PointsStatsNew2.mat'
+        psNew_p = '../Data/NERVE/PointsStatsNew2.mat'
         pSNew = sio.loadmat(psNew_p)['pointStatsNew']
 
     dev_data = neuron_data_pytorch(args.eval_path, batch_sz=args.batch_size, shuffle=False, mode='all',
@@ -130,8 +132,7 @@ if __name__ == "__main__":
             print("{}:{}")
 
     # load model
-    model = NIT_Registration(input_dim=3, n_hidden=args.n_hidden, n_layer=args.n_layer,
-                             p_rotate=0, feat_trans=0, cuda=args.cuda)
+    model = NIT_Registration(input_dim=3, n_hidden=args.n_hidden, cuda=args.cuda, n_layer=args.n_layer, p_rotate=0, feat_trans=0)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
     params = torch.load(args.model_path, map_location=lambda storage, loc: storage)
@@ -140,6 +141,9 @@ if __name__ == "__main__":
 
     num_hit_all = num_hit_cpd_all = num_hit_jeff_all = num_hit_jeff_all_1 = 0
     num_match_all = num_match_cpd_all = num_match_jeff_all = num_match_jeff_all_1 = 0
+
+    # for calculating upper and lower bound for Hang's data
+    num_hit_upper = num_match_label_all = 0
 
     num_hit_list = [0] * 100
     num_pair = 0
@@ -157,6 +161,13 @@ if __name__ == "__main__":
     time_trans_list = list()
     time_hung_list = list()
     time_cpd_list = list()
+    num_match_list = list()
+    num_label_list = list()
+
+    conf_dict = dict() # this dictionary store info about confidence and accuracy
+    conf_dict['conf_result'] = [] # list for (confidence, correct) pairs.
+    num_seg = []
+
     for batch_idx, data_batch in enumerate(dev_data_loader):
         if num_cal > args.cal_lim:
             break
@@ -170,20 +181,28 @@ if __name__ == "__main__":
         #print(pt_batch)
     #for src_sents, tgt_sents in batch_iter(dev_data, batch_size):
         #loss = -model(src_sents, tgt_sents).sum()
+
         with torch.no_grad():
             _, output_pairs = model(pt_batch, match_dict=match_dict, ref_idx=data_batch['ref_i'], mode='eval')
         num_worm = output_pairs['p_m'].size(0)
         time_trans_list.append(time.time() - tic)
         # p_m is the match of worms to the worm0
         for i in range(0, num_worm):
+            num_neui = len(pt_batch[i])
+            num_seg.append(num_neui)
+            num_label_cur = np.sum(label[i] >= 0)
+            num_label_list.append(num_label_cur)
+
             if i == data_batch['ref_i']:
                 continue
             num_cal += 1
             tic = time.time()
             p_m = output_pairs['p_m'][i].detach().cpu().numpy()
-            num_neui = len(pt_batch[i])
+
             p_m = p_m[:num_neui, :]
             if args.method == 'hung':
+                p_m = np.hstack((p_m[:, :-1], np.repeat(p_m[:, -1:], args.n_outlier,
+                                                        axis=1)))
                 row, col = linear_sum_assignment(-p_m)
             if args.method == 'max':
                 col = np.argmax(p_m, axis=1)
@@ -191,7 +210,10 @@ if __name__ == "__main__":
 
 
             num_row_ori = len(row)
-            row_mask = p_m[row, col] >= np.log(args.conf_thd)
+            if args.conf_thd > 0:
+                row_mask = p_m[row, col] >= np.log(args.conf_thd)
+            else:
+                row_mask = p_m[row, col] >= -float('Inf')
             thd_ratio = np.sum(row_mask) / max(1, len(row))
             print('thd_ratio:{}'.format(thd_ratio))
             thd_ratio_list.append(thd_ratio)
@@ -219,8 +241,8 @@ if __name__ == "__main__":
 
             log_p = np.mean(p_m[row, col])
             print('temp:{}, mov:{}'.format(data_batch['pt_names'][data_batch['ref_i']], data_batch['pt_names'][i]))
-            jeff_idx2 = int(data_batch['pt_names'][data_batch['ref_i']].split('.')[0].split('_')[-1])
-            jeff_idx1 = int(data_batch['pt_names'][i].split('.')[0].split('_')[-1])
+            jeff_idx2 = int(data_batch['pt_names'][data_batch['ref_i']].split('.npy')[0].split('_')[-1])
+            jeff_idx1 = int(data_batch['pt_names'][i].split('.npy')[0].split('_')[-1])
             print(jeff_idx1, jeff_idx2)
             print('avg log prob:{}'.format(log_p))
 
@@ -231,15 +253,32 @@ if __name__ == "__main__":
 
             num_match = num_hit = 0
 
+            # get the list for confidence and correct or not.
+            cur_conf_corr = []
             for r_idx, r in enumerate(row):
                 if r in gt_match_dict:
                     num_match += 1
                     if gt_match_dict[r] == col[r_idx]:
                         num_hit += 1
+                        cur_conf_corr.append([p_m[r, col[r_idx]], True])
+                    else:
+                        cur_conf_corr.append([p_m[r, col[r_idx]], False])
 
+            conf_dict['conf_result'].append(cur_conf_corr)
+
+            num_match = len(gt_match_dict)
             acc_m = num_hit / max(num_match, 1)
+            num_match_list.append(max(num_match, 1))
             num_hit_all += num_hit
             num_match_all += num_match
+
+            # calculate all the labelled neurons and upper/lower bound
+            num_label_cur = np.sum(label[i] >= 0)
+
+            print('num match:{}, num_label:{}'.format(num_match, num_label_cur))
+            num_hit_upper += num_hit + num_label_cur - num_match
+            num_match_label_all += num_label_cur
+
             print('num_hit:{}, num_match:{}, accuracy:{}'.format(num_hit, num_match, acc_m))
             tfmer_list.append(acc_m)
             if args.save:
@@ -268,7 +307,7 @@ if __name__ == "__main__":
                         num_match += 1
                         if gt_match_dict[r] == col_cpd[r_idx]:
                             num_hit += 1
-
+                num_match = len(gt_match_dict)
                 acc_m = num_hit / max(num_match, 1)
                 num_hit_cpd_all += num_hit
                 num_match_cpd_all += num_match
@@ -285,7 +324,7 @@ if __name__ == "__main__":
                         num_match += 1
                         if gt_match_dict[r] == col_jeff[r_idx]:
                             num_hit += 1
-
+                num_match = len(gt_match_dict)
                 acc_m = num_hit / max(num_match, 1)
                 num_hit_jeff_all += num_hit
                 num_match_jeff_all += num_match
@@ -299,7 +338,7 @@ if __name__ == "__main__":
                         num_match += 1
                         if gt_match_dict[r] == col_jeff[r_idx]:
                             num_hit += 1
-
+                num_match = len(gt_match_dict)
                 acc_m = num_hit / max(num_match, 1)
                 num_hit_jeff_all_1 += num_hit
                 num_match_jeff_all_1 += num_match
@@ -318,13 +357,10 @@ if __name__ == "__main__":
     print('Jeff accuracy:{}'.format(num_hit_jeff_all / max(1, num_match_jeff_all)))
     print('Jeff_1 accuracy:{}'.format(num_hit_jeff_all_1 / max(1, num_match_jeff_all_1)))
     print('trans time:{}, hung time:{}, cpd time:{}'.format(np.mean(time_trans_list), np.mean(time_hung_list), np.mean(time_cpd_list)))
-    if args.acc_name != 'no':
-        out = dict()
-        out['transformer'] = np.array(tfmer_list)
-        out['cpd'] = np.array(cpd_list)
-        out['jeff'] = np.array(jeff_list)
-        out['jeff_1'] = np.array(jeff_list_1)
-        out['thd_ratio'] = thd_ratio_list
-        with open(os.path.join('/projects/LEIFER/Xinwei/github/NeuronNet/pts_id/plot', args.acc_name+'{:03d}.pkl'.format(int(1000 *args.conf_thd))), 'wb') as fp:
-            pickle.dump(out, fp)
-            fp.close()
+    print('number of gt match:{}, total count:{}'.format(np.mean(num_match_list), len(num_match_list)))
+    print('number of segment:{}'.format(np.mean(num_seg)))
+    print('number of gt label:{}, total count:{}'.format(np.mean(num_label_list), len(num_label_list)))
+
+    print("Upper bound:{}, Lower bound:{}".format(num_hit_upper / num_match_label_all, num_hit_all / num_match_label_all))
+
+

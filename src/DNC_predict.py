@@ -107,8 +107,8 @@ def pre_matt(file, scale=200):
         mask_keep = data['mask_keep']
 
     label = np.array(data['label'])[mask_keep] if 'label' in data else None
-    name = np.array(data['name'])[mask_keep] if 'label' in data else None
-    label = None
+    name = np.array(data['name'])[mask_keep] if 'name' in data else None
+
     pts = data['pts'][mask_keep, :] / 0.42
 
     # transform the pts so that it match my results.
