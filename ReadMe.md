@@ -1,4 +1,4 @@
-# DLC: Deep Learning Correspondence for Neuron ID
+# fDNC: fast Deep Neural Correspondence
 
 This tool was developed for automatically predicting neuron correspondence for point clouds of neurons. The point clouds do not require straightening or axis-alignment as preprocessing. 
 
@@ -22,14 +22,14 @@ Each recorded worm is unstraightened and the head direction is arbitrary. The re
 An example of Data of template and test worm is provided in Data/Example
 
 # Example Code
-To run the ID prediction, use the predict function in src/DLC_predict.py. An example of running code was provided in src/example.ipynb 
+To run the ID prediction, use the predict function in src/DNC_predict.py. An example of running code was provided in src/example.ipynb 
 
 # Pretrain model
 We provide a pretrained model and recommend our user to download the pretrained model and save it in model folder as model/model.bin. The model can be found <a href="https://osf.io/t7dzu/">Data And Pretrained Model</a>
 
 We also provide the code for training a new model with synthetic data. An example for training with your own train and validation set is as follows:
 ```
-python ./src/fDLC_train.py --train_path ./Data/train --eval_path ./Data/val
+python ./src/fDNC_train.py --train_path ./Data/train --eval_path ./Data/val
 ```
 We also provide the training data <a href="https://osf.io/t7dzu/">Data And Pretrained Model</a>
 
